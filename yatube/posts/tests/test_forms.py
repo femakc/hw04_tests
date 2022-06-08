@@ -35,13 +35,14 @@ class PostsFormBaseTestCase(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
 
+
 class CreatePostFormTestCase(PostsFormBaseTestCase):
     """Тест формы Post """
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.url = reverse('posts:post_create')
-        
+
     def test_post_form(self):
         """POST тест валидной формы"""
 
@@ -50,7 +51,11 @@ class CreatePostFormTestCase(PostsFormBaseTestCase):
         form_dada = {
             'text': new_text
         }
-        response = self.authorized_client.post(self.url, form_dada, follow=True)
+        response = self.authorized_client.post(
+            self.url,
+            form_dada,
+            follow=True
+        )
 
         self.assertRedirects(response, f'/profile/{self.post.author}/')
         self.assertEqual(Post.objects.count(), post_count + 1)
