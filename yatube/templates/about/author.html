@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Об авторе проекта{% endblock %}
+{% load static %}
+{% block content %}
+  <h1>Привет, меня зовут Максим Федоров</h1>
+  <h3>
+    Мы с Yandex-Practicum создали данный проект блога для блогеров !
+  </h3>
+  <p>
+    <img src="{% static 'img/logo.png' %}"width="200" height="200">
+    <img src="{% static 'img/plus.png' %}"width="100" height="100">
+    <img src="{% static 'img/python.png' %}"width="200" height="200">
+    <img src="{% static 'img/plus.png' %}"width="100" height="100">
+    <img src="{% static 'img/i_normal.png' %}"width="200" height="200">
+    <img src="{% static 'img/ravno.png' %}"width="100" height="100">
+    <img src="{% static 'img/code1.png' %}"width="200" height="200">
+  </p>
+{% endblock %}
