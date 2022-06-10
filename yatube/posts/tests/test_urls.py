@@ -21,6 +21,7 @@ class URLTests(TestCase):
             author=cls.user,
             text='Тестовый текст поста',
         )
+        cls.user_2 = User.objects.create_user(username='auth_2')
 
     def setUp(self):
         self.guest_client = Client()
@@ -35,73 +36,115 @@ class URLTests(TestCase):
     def test_about_url_exists_at_desired_location(self):
         """Доступ к страницам не авторизованному пользователю."""
         field_urls = {
-            self.guest_client.get('/'):
+            '/':
             HTTPStatus.OK,
-            self.guest_client.get('/group/test_slug/'):
+            '/group/test_slug/':
             HTTPStatus.OK,
-            self.guest_client.get('/profile/auth/'):
+            '/profile/auth/':
             HTTPStatus.OK,
-            self.guest_client.get('/posts/1/'):
+            '/posts/1/':
             HTTPStatus.OK,
-            self.guest_client.get('/unexisting_page/'):
+            '/unexisting_page/':
             HTTPStatus.NOT_FOUND,
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):
-                self.assertEqual(value.status_code, expected)
+                self.assertEqual(
+                    self.guest_client.get(
+                        value
+                    )
+                    .status_code,
+                    expected
+                )
 
     def test_post_urls_auterized(self):
         """Доступ к страницам авторизованному пользователю."""
         field_urls = {
-            self.authorized_client.get('/'):
+            '/':
             HTTPStatus.OK,
-            self.authorized_client.get('/group/test_slug/'):
+            '/group/test_slug/':
             HTTPStatus.OK,
-            self.authorized_client.get('/profile/auth/'):
+            '/profile/auth/':
             HTTPStatus.OK,
-            self.authorized_client.get('/posts/1/'):
+            '/posts/1/':
             HTTPStatus.OK,
-            self.authorized_client.get('/unexisting_page/'):
-            HTTPStatus.NOT_FOUND,
-            self.authorized_client.get('/create/'):
+            '/create/':
             HTTPStatus.OK,
+            '/unexisting_page/':
+            HTTPStatus.NOT_FOUND
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):
-                self.assertEqual(value.status_code, expected)
+                self.assertEqual(
+                    self.authorized_client.get(
+                        value
+                    ).status_code,
+                    expected
+                )
 
     def test_about_url_anonimus_correct_template(self):
         """Проверка шаблонов страниц не авторизированному пользователю."""
         field_urls = {
-            self.guest_client.get('/'):
+            '/':
             'posts/index.html',
-            self.guest_client.get('/group/test_slug/'):
+            '/group/test_slug/':
             'posts/group_list.html',
-            self.guest_client.get('/profile/auth/'):
+            '/profile/auth/':
             'posts/profile.html',
-            self.guest_client.get('/posts/1/'):
+            '/posts/1/':
             'posts/post_detail.html',
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):
-                self.assertTemplateUsed(value, expected)
+                self.assertTemplateUsed(self.guest_client.get(value), expected)
 
     def test_about_url_autorizad_correct_template(self):
         """Проверка шаблонов страниц авторизированному пользователю."""
         field_urls = {
-            self.authorized_client.get('/'):
+            '/':
             'posts/index.html',
-            self.authorized_client.get('/group/test_slug/'):
+            '/group/test_slug/':
             'posts/group_list.html',
-            self.authorized_client.get('/profile/auth/'):
+            '/profile/auth/':
             'posts/profile.html',
-            self.authorized_client.get('/posts/1/'):
+            '/posts/1/':
             'posts/post_detail.html',
-            self.authorized_client.get('/posts/1/edit/'):
+            '/posts/1/edit/':
             'posts/create_post.html',
-            self.authorized_client.get('/create/'):
+            '/create/':
             'posts/create_post.html',
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):
-                self.assertTemplateUsed(value, expected)
+                self.assertTemplateUsed(
+                    self.authorized_client.get(
+                        value
+                    ),
+                    expected
+                )
+
+    def test_redirect_anonim_in_pivate_page(self):
+        """GET тест редиректа с приватных """
+        """страницы не авторизованного пользователя"""
+
+        private_urls = [
+            ('/create/', HTTPStatus.FOUND),
+            ('/posts/1/edit/', HTTPStatus.FOUND)
+        ]
+
+        for url, status in private_urls:
+            with self.subTest(url=url, status=status):
+                self.assertEqual(
+                    self.guest_client.get(
+                        url
+                    ).status_code,
+                    status
+                )
+
+    def test_edit_post_no_author(self):
+        """Не автор не попадает на """
+        """страницу редактирования не своего поста """
+        self.authorized_client.force_login(self.user_2)
+
+        response = self.authorized_client.get('/posts/1/edit/')
+        self.assertRedirects(response, '/posts/1/')

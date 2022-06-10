@@ -5,6 +5,7 @@ from posts.models import Post, Group
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django import forms
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
@@ -12,6 +13,7 @@ User = get_user_model()
 class PostsBaseTestCase(TestCase):
     """Базовый класс дя фикстур"""
     post_count = 13
+    posts_on_second_page = 4
 
     @classmethod
     def setUpClass(cls):
@@ -27,14 +29,29 @@ class PostsBaseTestCase(TestCase):
             slug=cls.slug,
             description=cls.description,
         )
-        for i in range(cls.post_count):
-            cls.post = Post.objects.create(
-                author=cls.user,
-                text=f'{i} {cls.text}',
-                group=cls.group
-            )
+        cls.group_for_edit = Group.objects.create(
+            title='Группа для редактирования',
+            slug='edit_slug',
+            description='any_descp',
+        )
+        cls.post = Post.objects.create(
+            author=cls.user,
+            text=cls.text,
+            group=cls.group
+        )
+
 
     def setUp(self):
+        posts_list = []
+        for i in range(self.post_count):
+            posts_list.append(
+                Post(
+                    author=self.user,
+                    text=f'{i} {self.text}',
+                    group=self.group
+                )
+            )
+        Post.objects.bulk_create(posts_list)
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -52,16 +69,32 @@ class IndexTestCase(PostsBaseTestCase):
         """позитивный тест index"""
 
         response = self.guest_client.get(self.url)
+        context = response.context
 
         self.assertTemplateUsed(response, 'posts/index.html')
-        self.assertIn('Последние об', response.context.get('title'))
+        self.assertIn('Последние об', context.get('title'))
+        self.assertEqual(context.get("post").group, self.group)
         self.assertEqual(
             len(
-                response.context.get(
+                context.get(
                     'page_obj'
                 )
             ),
             settings.POSTS_IN_PAGE
+        )
+    
+    def test_paginator_secong_page(self):
+        """Тест второй страницы на кольчество постов"""
+        response = self.guest_client.get(reverse('posts:index') + '?page=2')
+        context = response.context
+
+        self.assertEqual(
+            len(
+                context.get(
+                    'page_obj'
+                )
+            ),
+            self.posts_on_second_page
         )
 
 
@@ -72,22 +105,58 @@ class GroupPostsTestCase(PostsBaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.url = reverse('posts:group_list', kwargs={'slug': cls.group.slug})
+        cls.post_2 = Post.objects.create(
+            author=cls.user,
+            text='Текст второй группы',
+            group=cls.group_for_edit
+        )
 
     def test_get_success(self):
         """позитивный тест group_posts"""
 
         response = self.guest_client.get(self.url)
+        context = response.context
 
         self.assertTemplateUsed(response, 'posts/group_list.html')
-        self.assertEqual(response.context.get('group'), self.group)
+        self.assertEqual(context.get('group'), self.group)
         self.assertEqual(
             len(
-                response.context.get(
+                context.get(
                     'page_obj'
                 )
             ),
             settings.POSTS_IN_PAGE
         )
+
+    def test_paginator_secong_page(self):
+        """Тест второй страницы на кольчество постов"""
+        
+        response = self.guest_client.get(
+            reverse(
+                'posts:group_list',
+                kwargs={'slug': self.group.slug}
+            )
+            + '?page=2'
+        )
+        context = response.context
+
+        self.assertEqual(
+            len(
+                context.get(
+                    'page_obj'
+                )
+            ),
+            4
+        )
+
+    def test_get_negative(self):
+        """"Негативный GET запрос,"""
+        """пост с другой группой не отображается"""
+
+        response = self.guest_client.get(self.url)
+        context = response.context
+
+        self.assertNotEqual(self.post_2, context.get('post'))
 
 
 class ProfileTestCase(PostsBaseTestCase):
@@ -105,12 +174,13 @@ class ProfileTestCase(PostsBaseTestCase):
         """позитивный тест profile"""
 
         response = self.guest_client.get(self.url)
+        context = response.context
 
         self.assertTemplateUsed(response, 'posts/profile.html')
-        self.assertEqual(response.context.get('author'), self.user)
+        self.assertEqual(context.get('author'), self.user)
         self.assertEqual(
             len(
-                response.context.get(
+                context.get(
                     'page_obj'
                 )
             ),
@@ -133,9 +203,10 @@ class PostDetailTestCase(PostsBaseTestCase):
         """Позитивный тест post_detail"""
 
         response = self.guest_client.get(self.url)
+        context = response.context
 
         self.assertTemplateUsed(response, 'posts/post_detail.html')
-        self.assertEqual(response.context.get('post').id, self.post.pk)
+        self.assertEqual(context.get('post').id, self.post.pk)
 
 
 class PostCreateTestCase(PostsBaseTestCase):
@@ -145,6 +216,14 @@ class PostCreateTestCase(PostsBaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.url = reverse('posts:post_create')
+
+    # def test_create_post_in_urls(self):
+    #     """Проверка созданный тест отображается на страницах"""
+    #     response = self.guest_client.get(reverse('posts:index'))
+    #     context = response.context.get('page_obj')
+    #     post = get_object_or_404(Group, id=2)
+    #     self.assertEqual(post, 1)
+    #     self.assertEqual(response.status_code, 200)
 
     def test_get_success(self):
         """Позитивный тест post_create"""
@@ -239,15 +318,3 @@ class PostEditTestCase(PostsBaseTestCase):
         response = self.guest_client.post(self.url)
 
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
-
-    def test_post_error(self):
-        """POST error"""
-
-        new_text = ''
-        data = {
-            'text': new_text
-        }
-        response = self.authorized_client.post(self.url, data=data)
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-        error = response.context.get('form').errors
-        self.assertIn('Обязательное поле', str(error))
