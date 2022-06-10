@@ -5,7 +5,6 @@ from posts.models import Post, Group
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django import forms
-from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 
@@ -39,7 +38,6 @@ class PostsBaseTestCase(TestCase):
             text=cls.text,
             group=cls.group
         )
-
 
     def setUp(self):
         posts_list = []
@@ -82,7 +80,7 @@ class IndexTestCase(PostsBaseTestCase):
             ),
             settings.POSTS_IN_PAGE
         )
-    
+
     def test_paginator_secong_page(self):
         """Тест второй страницы на кольчество постов"""
         response = self.guest_client.get(reverse('posts:index') + '?page=2')
@@ -130,7 +128,7 @@ class GroupPostsTestCase(PostsBaseTestCase):
 
     def test_paginator_secong_page(self):
         """Тест второй страницы на кольчество постов"""
-        
+
         response = self.guest_client.get(
             reverse(
                 'posts:group_list',

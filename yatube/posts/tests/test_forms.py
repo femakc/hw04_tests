@@ -74,7 +74,13 @@ class PostFormTestCase(PostsFormBaseTestCase):
             'group': self.group_for_edit.id
         }
 
-        response = self.authorized_client.post(reverse('posts:post_edit', kwargs={'post_id': self.post.pk}), form_data)
+        response = self.authorized_client.post(
+            reverse(
+                'posts:post_edit',
+                kwargs={'post_id': self.post.pk}
+            ),
+            form_data
+        )
 
         self.assertRedirects(response, f'/posts/{self.post.pk}/')
         self.assertEqual(Post.objects.count(), post_count)
