@@ -319,3 +319,4 @@ class PostEditTestCase(PostsBaseTestCase):
         response = self.guest_client.post(self.url)
 
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
+# комит тест
