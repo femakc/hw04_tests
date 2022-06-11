@@ -227,7 +227,7 @@ class PostCreateTestCase(PostsBaseTestCase):
         cls.url = reverse('posts:post_create')
 
     def test_get_success(self):
-        """Позитивный тест post_create"""
+        """Позитивный тест GET post_create"""
 
         response = self.authorized_client.get(self.url)
         fields = {
@@ -242,7 +242,7 @@ class PostCreateTestCase(PostsBaseTestCase):
                     response.context.get('form').fields.get(value), expected
                 )
 
-    def test_get_auth(self):
+    def test_get_anonimus(self):
         """GET не авторизованного пользователя create_post"""
 
         response = self.guest_client.get(self.url)
