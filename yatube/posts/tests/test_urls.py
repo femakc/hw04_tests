@@ -30,7 +30,6 @@ class URLTests(TestCase):
         self.authorized_client.force_login(self.user)
         self.authorized_client_2.force_login(self.user_2)
 
-
     def test_homepage(self):
         """smoke test"""
         response = self.guest_client.get('/')
@@ -147,9 +146,7 @@ class URLTests(TestCase):
     def test_edit_post_no_author(self):
         """Не автор не попадает на """
         """страницу редактирования не своего поста """
-        
-        # self.authorized_client_.force_login(self.user_2)
-        
+
         response = self.authorized_client_2.get('/posts/1/edit/')
 
         self.assertRedirects(response, '/posts/1/')
