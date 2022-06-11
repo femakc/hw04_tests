@@ -73,7 +73,11 @@ def post_edit(request, post_id):
     """Страница редактирования поста"""
     template = 'posts/create_post.html'
     post = get_object_or_404(Post, id=post_id)
-    form = PostForm(request.POST or None, instance=post)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None,
+        instance=post
+    )
     if post.author != request.user:
         return redirect("posts:post_detail", post_id)
     if request.method == 'POST':

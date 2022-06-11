@@ -71,7 +71,6 @@ class IndexTestCase(PostsBaseTestCase):
 
         self.assertTemplateUsed(response, 'posts/index.html')
         self.assertIn('Последние об', context.get('title'))
-        self.assertEqual(context.get("post").group, self.group)
         self.assertEqual(
             len(
                 context.get(
@@ -80,6 +79,19 @@ class IndexTestCase(PostsBaseTestCase):
             ),
             settings.POSTS_IN_PAGE
         )
+
+    def test_content(self):
+        """Подробная проверка полей поста"""
+
+        response = self.guest_client.get(self.url)
+        context = response.context
+        post_list = context.get('page_obj')
+
+        for post in post_list:
+            with self.subTest(post=post):
+                self.assertIn(self.text, post.text)
+                self.assertEqual(self.group, post.group)
+                self.assertEqual(self.user, post.author)
 
     def test_paginator_secong_page(self):
         """Тест второй страницы на кольчество постов"""
@@ -114,7 +126,11 @@ class GroupPostsTestCase(PostsBaseTestCase):
 
         response = self.guest_client.get(self.url)
         context = response.context
+        post_list = context.get('page_obj')
 
+        for value in post_list:
+            with self.subTest(value=value):
+                self.assertNotEqual(self.post_2.pk, value.pk)
         self.assertTemplateUsed(response, 'posts/group_list.html')
         self.assertEqual(context.get('group'), self.group)
         self.assertEqual(
@@ -137,7 +153,11 @@ class GroupPostsTestCase(PostsBaseTestCase):
             + '?page=2'
         )
         context = response.context
+        post_list = context.get('page_obj')
 
+        for value in post_list:
+            with self.subTest(value=value):
+                self.assertNotEqual(self.post_2.pk, value.pk)
         self.assertEqual(
             len(
                 context.get(
@@ -146,15 +166,6 @@ class GroupPostsTestCase(PostsBaseTestCase):
             ),
             4
         )
-
-    def test_get_negative(self):
-        """"Негативный GET запрос,"""
-        """пост с другой группой не отображается"""
-
-        response = self.guest_client.get(self.url)
-        context = response.context
-
-        self.assertNotEqual(self.post_2, context.get('post'))
 
 
 class ProfileTestCase(PostsBaseTestCase):
@@ -214,14 +225,6 @@ class PostCreateTestCase(PostsBaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.url = reverse('posts:post_create')
-
-    # def test_create_post_in_urls(self):
-    #     """Проверка созданный тест отображается на страницах"""
-    #     response = self.guest_client.get(reverse('posts:index'))
-    #     context = response.context.get('page_obj')
-    #     post = get_object_or_404(Group, id=2)
-    #     self.assertEqual(post, 1)
-    #     self.assertEqual(response.status_code, 200)
 
     def test_get_success(self):
         """Позитивный тест post_create"""
