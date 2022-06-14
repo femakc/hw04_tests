@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 from http import HTTPStatus
 from django.urls import reverse
 from django.test import TestCase, Client
@@ -5,6 +7,9 @@ from posts.models import Post, Group
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django import forms
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 User = get_user_model()
 
@@ -17,6 +22,20 @@ class PostsBaseTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        cls.uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=small_gif,
+            content_type='image/gif'
+        )
         cls.username = 'auth'
         cls.title = 'Тестовая группа'
         cls.slug = 'test_slug'
@@ -36,8 +55,14 @@ class PostsBaseTestCase(TestCase):
         cls.post = Post.objects.create(
             author=cls.user,
             text=cls.text,
-            group=cls.group
+            group=cls.group,
+            image=cls.uploaded
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
         posts_list = []
@@ -46,7 +71,8 @@ class PostsBaseTestCase(TestCase):
                 Post(
                     author=self.user,
                     text=f'{i} {self.text}',
-                    group=self.group
+                    group=self.group,
+                    image=self.uploaded
                 )
             )
         Post.objects.bulk_create(posts_list)
@@ -92,6 +118,7 @@ class IndexTestCase(PostsBaseTestCase):
                 self.assertIn(self.text, post.text)
                 self.assertEqual(self.group, post.group)
                 self.assertEqual(self.user, post.author)
+                self.assertTrue(post.image)
 
     def test_paginator_secong_page(self):
         """Тест второй страницы на кольчество постов"""
@@ -131,6 +158,7 @@ class GroupPostsTestCase(PostsBaseTestCase):
         for value in post_list:
             with self.subTest(value=value):
                 self.assertNotEqual(self.post_2.pk, value.pk)
+                self.assertTrue(value.image)
         self.assertTemplateUsed(response, 'posts/group_list.html')
         self.assertEqual(context.get('group'), self.group)
         self.assertEqual(
@@ -184,6 +212,11 @@ class ProfileTestCase(PostsBaseTestCase):
 
         response = self.guest_client.get(self.url)
         context = response.context
+        post_list = context.get('page_obj')
+
+        for value in post_list:
+            with self.subTest(value=value):
+                self.assertTrue(value.image)
 
         self.assertTemplateUsed(response, 'posts/profile.html')
         self.assertEqual(context.get('author'), self.user)
@@ -216,6 +249,7 @@ class PostDetailTestCase(PostsBaseTestCase):
 
         self.assertTemplateUsed(response, 'posts/post_detail.html')
         self.assertEqual(context.get('post').id, self.post.pk)
+        self.assertTrue(context.get('post').image)
 
 
 class PostCreateTestCase(PostsBaseTestCase):
@@ -232,7 +266,8 @@ class PostCreateTestCase(PostsBaseTestCase):
         response = self.authorized_client.get(self.url)
         fields = {
             'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField
+            'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
 
         self.assertTemplateUsed(response, 'posts/create_post.html')
@@ -254,9 +289,11 @@ class PostCreateTestCase(PostsBaseTestCase):
         post_count = Post.objects.count()
         new_text = 'new_text'
         group = self.group.pk
+        image = self.uploaded
         data = {
             'text': new_text,
-            'group': group
+            'group': group,
+            'image': image
         }
         response = self.authorized_client.post(self.url, data=data)
 
@@ -281,7 +318,8 @@ class PostEditTestCase(PostsBaseTestCase):
         post_in_context = response.context.get('post')
         fields = {
             'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField
+            'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
 
         self.assertEqual(post_in_context.pk, self.post.pk)
@@ -319,4 +357,3 @@ class PostEditTestCase(PostsBaseTestCase):
         response = self.guest_client.post(self.url)
 
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
-# комит тест
