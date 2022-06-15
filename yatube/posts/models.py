@@ -1,3 +1,4 @@
+from tkinter import CASCADE
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -67,3 +68,39 @@ class Post(models.Model):
         ordering = ['-pub_date']
         verbose_name = 'Post'
         verbose_name_plural = 'Posts'
+
+
+class Comment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=CASCADE,
+        blank=True,
+        null=True,
+        related_name='comments',
+        verbose_name="Пост",
+        help_text='Пост к которому относится коментарий'
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=CASCADE,
+        related_name='comments',
+        verbose_name="Автор поста",
+        help_text='Автор'
+    )
+    text = models.TextField(
+        verbose_name="Комментарий",
+        help_text='Текст комментария'
+    )
+    created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Дата создания",
+        help_text='Дата'
+    )
+
+    def __str__(self):
+        return "Комментарий"
+        
+    class Meta:
+        ordering = ['-created']
+        verbose_name = 'Comment'
+        verbose_name_plural = 'Comments'

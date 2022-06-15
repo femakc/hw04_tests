@@ -3,7 +3,7 @@ import tempfile
 from http import HTTPStatus
 from django.urls import reverse
 from django.test import TestCase, Client
-from posts.models import Post, Group
+from posts.models import Post, Group, Comment
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django import forms
@@ -250,6 +250,43 @@ class PostDetailTestCase(PostsBaseTestCase):
         self.assertTemplateUsed(response, 'posts/post_detail.html')
         self.assertEqual(context.get('post').id, self.post.pk)
         self.assertTrue(context.get('post').image)
+
+    def test_get_negative(self):
+        """Не авторизованный пользователь"""
+        """переадрисуется при попытке оставить пост"""
+
+        response = self.guest_client.post(
+            reverse(
+                'posts:add_comment',
+                kwargs={'post_id': self.post.pk}
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            f'/auth/login/?next=/posts/{self.post.pk}/comment/'
+        )
+
+    def test_comment_in_page_after_add(self):
+        """Комментарий появляется на"""
+        """странице поста после добавления"""
+        comment_count = Comment.objects.count()
+        comment = 'Комментарий к посту'
+        comment_data = {
+            'text': comment
+        }
+
+        response = self.authorized_client.post(
+            reverse(
+                'posts:add_comment',
+                kwargs={'post_id': self.post.pk}
+            ),
+            data=comment_data
+        )
+
+        self.assertRedirects(response, f'/posts/{self.post.pk}/')
+        self.assertEqual(Comment.objects.count(), comment_count + 1)
+        self.assertEqual(Comment.objects.latest('created').text, comment)
 
 
 class PostCreateTestCase(PostsBaseTestCase):

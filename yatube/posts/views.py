@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post, Group, User
+from .models import Post, Group, User, Comment
 from django.contrib.auth.decorators import login_required
-from .forms import PostForm
+from .forms import PostForm, CommentForm
 from .paginator import paginator
 
 
@@ -48,8 +48,12 @@ def post_detail(request, post_id):
     """Страница подробной информации о посте"""
     template = 'posts/post_detail.html'
     post = get_object_or_404(Post, id=post_id)
+    comments = post.comments.all()
+    form = CommentForm(request.POST or None)
     context = {
-        'post': post
+        'post': post,
+        'form': form,
+        'comments': comments
     }
     return render(request, template, context)
 
@@ -88,6 +92,19 @@ def post_edit(request, post_id):
     context = {
         'form': form,
         'is_edit': True,
-        'post': post
+        'post': post,
     }
     return render(request, template, context)
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = post
+        comment.save()
+    print(form.errors)
+    return redirect('posts:post_detail', post_id=post_id)

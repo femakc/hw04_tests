@@ -42,7 +42,8 @@
           <a class="btn btn-primary" href="{% url 'posts:post_edit' post.id %}">
             редактировать запись
           </a> 
-        {% endif %}        
+        {% endif %} 
+        {% include 'posts/includes/comments.html' %}       
       </article>
     </div> 
   </main>
