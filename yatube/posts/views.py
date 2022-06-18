@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Post, Group, User, Comment
+from .models import Post, Group, User, Follow
 from django.contrib.auth.decorators import login_required
 from .forms import PostForm, CommentForm
 from .paginator import paginator
+from django.views.decorators.cache import cache_page
 
 
+@cache_page(20, key_prefix='index_page')
 def index(request):
     """Главная страница"""
     template = 'posts/index.html'
@@ -35,11 +37,29 @@ def group_posts(request, slug):
 def profile(request, username):
     """Профаил пользователя"""
     template = 'posts/profile.html'
+    following = False
     author = User.objects.get(username=username)
+    follow_list = []
+    if request.user.is_authenticated:
+        followings = list(
+            Follow.objects.select_related(
+                'user'
+            ).
+            filter(
+                user_id=request.user
+            )
+        )
+        for i in followings:
+            follow_list.append(i.author_id)
+        following = author.id in follow_list
+    user_not_author = request.user != author
     post_list = Post.objects.select_related('author').filter(author_id=author)
+
     context = {
         'page_obj': paginator(post_list, request),
-        'author': author
+        'author': author,
+        'following': following,
+        'user_not_author': user_not_author
     }
     return render(request, template, context)
 
@@ -106,5 +126,51 @@ def add_comment(request, post_id):
         comment.author = request.user
         comment.post = post
         comment.save()
-    print(form.errors)
     return redirect('posts:post_detail', post_id=post_id)
+
+
+@login_required
+def follow_index(request):
+    """Страница подписки"""
+    current_user = request.user
+    template = 'posts/follow.html'
+    follow_list = []
+    followings = list(
+        Follow.objects.select_related(
+            'user'
+        ).
+        filter(
+            user_id=current_user
+        )
+    )
+    for i in followings:
+        follow_list.append(i.author_id)
+    post_list = Post.objects.select_related('author').filter(
+        author__in=follow_list
+    )
+    context = {
+        'title': 'Страница подписки',
+        'page_obj': paginator(post_list, request),
+        'follow_list': follow_list
+    }
+    return render(request, template, context)
+
+
+@login_required
+def profile_follow(request, username):
+    """Подписаться на автора"""
+    user = User.objects.get(username=request.user)
+    author = User.objects.get(username=username)
+    if user != author:
+        Follow.objects.create(user=user, author=author)
+    return redirect('posts:follow_index')
+
+
+@login_required
+def profile_unfollow(request, username):
+    """Одписаться на автора"""
+    user = User.objects.get(username=request.user)
+    author = User.objects.get(username=username)
+    if user != author:
+        Follow.objects.filter(user=user, author=author).delete()
+    return redirect('posts:follow_index')

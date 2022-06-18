@@ -1,6 +1,7 @@
 from tkinter import CASCADE
 from django.db import models
 from django.contrib.auth import get_user_model
+from core.models import CreatedModel
 
 User = get_user_model()
 
@@ -29,15 +30,10 @@ class Group(models.Model):
         verbose_name_plural = 'Groups'
 
 
-class Post(models.Model):
+class Post(CreatedModel):
     text = models.TextField(
         verbose_name="Пост",
         help_text='Текст нового поста'
-    )
-    pub_date = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Дата создания",
-        help_text='Дата'
     )
     author = models.ForeignKey(
         User,
@@ -65,12 +61,12 @@ class Post(models.Model):
         return self.text[:15]
 
     class Meta:
-        ordering = ['-pub_date']
+        ordering = ['-created']
         verbose_name = 'Post'
         verbose_name_plural = 'Posts'
 
 
-class Comment(models.Model):
+class Comment(CreatedModel):
     post = models.ForeignKey(
         Post,
         on_delete=CASCADE,
@@ -91,16 +87,35 @@ class Comment(models.Model):
         verbose_name="Комментарий",
         help_text='Текст комментария'
     )
-    created = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Дата создания",
-        help_text='Дата'
-    )
 
     def __str__(self):
         return "Комментарий"
-        
+
     class Meta:
         ordering = ['-created']
         verbose_name = 'Comment'
         verbose_name_plural = 'Comments'
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=CASCADE,
+        related_name='follower',
+        verbose_name="Подписчик",
+        help_text='тот кто подписывается '
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=CASCADE,
+        related_name='following',
+        verbose_name="Блогер",
+        help_text='тот на кого подписываются'
+    )
+
+    def __str__(self):
+        return 'Подписки'
+
+    class Meta:
+        verbose_name = 'follow'
+        verbose_name_plural = 'follows'

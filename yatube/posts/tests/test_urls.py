@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from posts.models import Post, Group
 from django.contrib.auth import get_user_model
 from http import HTTPStatus
+from django.core.cache import cache
 
 User = get_user_model()
 
@@ -29,6 +30,7 @@ class URLTests(TestCase):
         self.authorized_client_2 = Client()
         self.authorized_client.force_login(self.user)
         self.authorized_client_2.force_login(self.user_2)
+        cache.clear()
 
     def test_homepage(self):
         """smoke test"""
@@ -95,6 +97,8 @@ class URLTests(TestCase):
             'posts/profile.html',
             '/posts/1/':
             'posts/post_detail.html',
+            '/abracadabra/':
+            'core/404.html'
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):
@@ -115,6 +119,8 @@ class URLTests(TestCase):
             'posts/create_post.html',
             '/create/':
             'posts/create_post.html',
+            '/abracadabra/':
+            'core/404.html'
         }
         for value, expected in field_urls.items():
             with self.subTest(value=value):

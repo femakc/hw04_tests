@@ -3,11 +3,12 @@ import tempfile
 from http import HTTPStatus
 from django.urls import reverse
 from django.test import TestCase, Client
-from posts.models import Post, Group, Comment
+from posts.models import Post, Group, Comment, Follow
 from django.contrib.auth import get_user_model
 from django.conf import settings
 from django import forms
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.cache import cache
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
@@ -79,6 +80,7 @@ class PostsBaseTestCase(TestCase):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        cache.clear()
 
 
 class IndexTestCase(PostsBaseTestCase):
@@ -394,3 +396,96 @@ class PostEditTestCase(PostsBaseTestCase):
         response = self.guest_client.post(self.url)
 
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
+
+class PostCacheTest(PostsBaseTestCase):
+    """Класс тестирования index cache"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.url = reverse('posts:index')
+
+    def test_cache_index(self):
+        """Тест кеширования index"""
+
+        first_response = self.authorized_client.get(self.url)
+        self.second_post = Post.objects.create(
+            author=self.user,
+            text='кеш текст',
+        )
+        second_response = self.authorized_client.get(self.url)
+        self.assertEqual(first_response.content, second_response.content)
+        cache.clear()
+        response = self.authorized_client.get(self.url)
+        self.assertNotEqual(second_response.content, response.content)
+
+
+class PostSubscriptionsTest(PostsBaseTestCase):
+    """Тестирование финкцианала подписки"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.url = reverse(
+            'posts:profile',
+            kwargs={'username': cls.post.author}
+        )
+
+    def test_subscribe(self):
+        """Авторизованный пользователь может подпасаться и отписаться"""
+        user_2 = User.objects.create_user(username='user_2')
+        self.authorized_client = Client()
+        self.authorized_client.force_login(user_2)
+        follow_count = Follow.objects.count()
+
+        response = self.authorized_client.get(
+            reverse(
+                'posts:profile_follow',
+                kwargs={'username': self.post.author}
+            )
+        )
+
+        self.assertRedirects(response, '/follow/')
+        self.assertEqual(follow_count + 1, Follow.objects.count())
+
+        response = self.authorized_client.get(
+            reverse(
+                'posts:profile_unfollow',
+                kwargs={'username': self.post.author}
+            )
+        )
+
+        self.assertRedirects(response, '/follow/')
+        self.assertEqual(follow_count, Follow.objects.count())
+
+
+class PostFollowTest(PostsBaseTestCase):
+    """Тест отображение постов в подписках"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.url = reverse('posts:follow_index')
+
+    def test_follow_posts(self):
+        """Новый пост отображается в follow_index"""
+        user_1 = self.authorized_client
+        user_2 = User.objects.create_user(username='user_2')
+        self.authorized_client = Client()
+        self.authorized_client.force_login(user_2)
+
+        response = self.authorized_client.get(self.url)
+        Follow.objects.create(user=user_2, author=self.post.author)
+
+        text = 'Subscribe text'
+        self.new_post = Post.objects.create(
+            author=self.post.author,
+            text=text
+        )
+
+        response = self.authorized_client.get(self.url)
+        self.assertEqual(text, response.context.get('page_obj')[0].text)
+
+        response = user_1.get(self.url)
+        self.assertEqual(0, len(response.context.get('page_obj')))

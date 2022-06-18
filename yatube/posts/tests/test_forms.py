@@ -90,7 +90,7 @@ class PostFormTestCase(PostsFormBaseTestCase):
         self.assertRedirects(response, f'/profile/{self.post.author}/')
         self.assertEqual(Post.objects.count(), post_count + 1)
         self.post.refresh_from_db()
-        self.assertEqual(Post.objects.latest('pub_date').text, new_text)
+        self.assertEqual(Post.objects.latest('created').text, new_text)
 
     def test_edit_post_form(self):
         """POST тест формы post_edit"""
@@ -114,13 +114,13 @@ class PostFormTestCase(PostsFormBaseTestCase):
         self.post.refresh_from_db()
         self.assertEqual(
             Post.objects.latest(
-                'pub_date'
+                'created'
             ).group,
             self.group_for_edit
         )
         self.assertEqual(
             Post.objects.latest(
-                'pub_date'
+                'created'
             ).text,
             new_text
         )

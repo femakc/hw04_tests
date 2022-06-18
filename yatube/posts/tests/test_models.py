@@ -44,7 +44,7 @@ class PostModelTestCase(PostBaseTestCase):
 
         field_verboses = {
             'text': 'Пост',
-            'pub_date': 'Дата создания',
+            'created': 'Дата создания',
             'author': 'Автор поста',
             'group': 'Группа',
         }
@@ -61,7 +61,7 @@ class PostModelTestCase(PostBaseTestCase):
         post = self.post
         field_help_texts = {
             'text': 'Текст нового поста',
-            'pub_date': 'Дата',
+            'created': 'Дата',
             'author': 'Автор',
             'group': 'Группа, к которой будет относиться пост',
         }
